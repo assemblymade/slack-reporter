@@ -1,4 +1,4 @@
-(ns titan-slack.core
+(ns slack-reporter.core
   (:require [clj-http.client :as client]
             [environ.core :refer [env]]
             [opennlp.nlp :refer :all]
@@ -8,7 +8,10 @@
             [clojure.pprint :refer [pprint]]
             [clojure.string :as string]))
 
+;; TextRank/PageRank d (by convention)
+(defonce d 0.85)
 (defonce slack-token (env :slack-token))
+(def special-characters (string/split "! @ # $ % ^ & * ( ) < > ? . : , ' <https <http" #" "))
 
 (defonce get-sentences (make-sentence-detector "resources/models/en-sent.bin"))
 (defonce tokenize (make-tokenizer "resources/models/en-token.bin"))
@@ -19,7 +22,9 @@
 
 (defn now [] (quot (System/currentTimeMillis) 1000))
 
-(defn get-start-time [] (- (now) (* 7 24 60 60)))
+(defn get-start-time
+  ([] (- (now) (* 24 60 60)))
+  ([n] (- (now) (* n 24 60 60))))
 
 (defn cache-results [f expiration]
   (let [cache (atom {})]
@@ -167,9 +172,6 @@
         message (last (sort-by :comments-count messages))]
     (map make-highlight (filter has-comments messages))))
 
-(defn iword [wt]
-  (map first (first wt)))
-
 (defn tokenize-sentence [sentence]
   (tokenize sentence))
 
@@ -184,20 +186,32 @@
 (defn messages->bigrams [messages]
   (map sentences->bigrams messages))
 
-(defn process-messages []
-  (let [messages (get-messages "C0250R8DP")
+(defn bigram-in-message? [text]
+  (fn [bigram]
+    (not= (.indexOf text (string/join " " (get bigram 0))) -1)))
+
+(defn map-sentences-to-bigrams [messages bigram-frequencies]
+  (reduce #(assoc %1
+             (%2 "text")
+             (filter (bigram-in-message? (%2 "text"))
+                     bigram-frequencies))
+          {}
+          messages))
+
+(defn remove-special-characters [bigram]
+  (every? #(= (.indexOf bigram %) -1) special-characters))
+
+(defn calculate-score [v]
+  (if (= (count v) 0)
+    0
+    (+ (- 1 d) (* d (reduce #(+ %1 (get %2 1)) 0 v)))))
+
+(defn process-messages [channel]
+  (let [messages (get-messages channel)
         message-bigrams (messages->bigrams messages)
         sentence-bigrams (map #(apply concat %) message-bigrams)
-        bigrams (apply concat sentence-bigrams)]
-    (reverse (sort-by val (frequencies bigrams)))))
-
-(pprint (process-messages))
-
-;; (pprint (make-highlight-for-channel "C0250R8DP"))
-;; (pprint (reverse
-         ;; (sort-by val
-                  ;; (frequencies
-                   ;; (flatten
-                    ;; (map iword
-                         ;; (map tag-message
-                              ;; (get-messages "C0250R8DP"))))))))
+        bigrams (filter remove-special-characters (apply concat sentence-bigrams))
+        bigram-frequencies (reverse (sort-by val (frequencies bigrams)))
+        messages-map (map-sentences-to-bigrams messages bigram-frequencies)
+        scored-messages-map (reduce-kv #(assoc %1 %2 (calculate-score %3)) {} messages-map)]
+    (take 10 (reverse (sort-by val scored-messages-map)))))

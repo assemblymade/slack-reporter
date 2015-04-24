@@ -1,4 +1,4 @@
-(defproject titan-slack "0.1.0-SNAPSHOT"
+(defproject slack-reporter "0.1.0-SNAPSHOT"
   :description "Slack summaries for the Assembly Titan API"
   :url "https://titan-web.herokuapp.com"
   :license {:name "Eclipse Public License"

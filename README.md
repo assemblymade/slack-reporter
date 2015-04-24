@@ -1,4 +1,4 @@
-# titan-slack
+# slack-reporter
 
 A reporter for digesting and summarizing [Slack](https://slack.com) channels.
 
