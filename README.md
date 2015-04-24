@@ -1,14 +1,14 @@
 # titan-slack
 
-A Clojure library designed to ... well, that part is up to you.
+A reporter for digesting and summarizing [Slack](https://slack.com) channels.
 
 ## Usage
 
-FIXME
+Code first, docs in a bit.
 
 ## License
 
-Copyright © 2015 FIXME
+Copyright © 2015 Assembly, Inc.
 
 Distributed under the Eclipse Public License either version 1.0 or (at
 your option) any later version.
