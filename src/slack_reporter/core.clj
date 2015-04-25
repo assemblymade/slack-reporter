@@ -10,8 +10,9 @@
 
 ;; TextRank/PageRank d (by convention)
 (defonce d 0.85)
+(defonce highlight-url "http://api.titan.dev:8787/changelogs/assembly/highlights")
 (defonce slack-token (env :slack-token))
-(def special-characters (string/split "! @ # $ % ^ & * ( ) < > ? . : , ' <https <http" #" "))
+(defonce special-characters (string/split "! @ # $ % ^ & * ( ) < > ? . : , ' <https <http" #" "))
 
 (defonce get-sentences (make-sentence-detector "resources/models/en-sent.bin"))
 (defonce tokenize (make-tokenizer "resources/models/en-token.bin"))
@@ -86,11 +87,15 @@
 
 (def get-channel-history (cache-results get-channel-history (+ (now) 60)))
 
+(defn not-deleted [user]
+  (not (user "deleted")))
+
 (defn get-users []
-  ((get-and-parse-body
-    (client/get (string/join ["https://slack.com/api/users.list?token="
-                              slack-token])))
-   "members"))
+  (filter not-deleted
+          ((get-and-parse-body
+            (client/get (string/join ["https://slack.com/api/users.list?token="
+                                      slack-token])))
+           "members")))
 
 (def get-users (cache-results get-users (+ (now) (* 24 60 60))))
 
@@ -101,9 +106,6 @@
 (defn get-messages [channel]
   (let [history (get-channel-history channel (get-start-time))]
     (filter has-user (history "messages"))))
-
-(defn score-sentence [tagged-sentence]
-  tagged-sentence)
 
 (defn tag-message [message]
   (let [messages (map tokenize
@@ -157,26 +159,25 @@
                      "</a> that's generating a lot of buzz.")]
     {:content content
      :label "slack"
-     :reason (str "@"
-                  (user :name)
-                  " uploaded a file with "
-                  (message :comments-count)
-                  " comments")
+     :why (str "@"
+               (user :name)
+               " uploaded a file with "
+               (message :comments-count)
+               " comments")
      :source (message :url)}))
 
 (defn has-comments [message]
   (> (message :comments-count) 0))
 
-(defn make-highlight-for-channel [channel]
-  (let [messages (map transform-file-share-message (get-file-shares channel))
-        message (last (sort-by :comments-count messages))]
+(defn highlight-file-upload [channel]
+  (let [messages (map transform-file-share-message (get-file-shares channel))]
     (map make-highlight (filter has-comments messages))))
 
 (defn tokenize-sentence [sentence]
   (tokenize sentence))
 
 (defn partition-words [tokenized-sentence]
-  (partition-all 2 1 tokenized-sentence))
+  (partition 2 1 tokenized-sentence))
 
 (def partition-tokenized-sentences (comp partition-words tokenize-sentence))
 
@@ -193,8 +194,9 @@
 (defn map-sentences-to-bigrams [messages bigram-frequencies]
   (reduce #(assoc %1
              (%2 "text")
-             (filter (bigram-in-message? (%2 "text"))
-                     bigram-frequencies))
+             {:ngrams (filter (bigram-in-message? (%2 "text"))
+                        bigram-frequencies)
+              :message %2})
           {}
           messages))
 
@@ -213,5 +215,37 @@
         bigrams (filter remove-special-characters (apply concat sentence-bigrams))
         bigram-frequencies (reverse (sort-by val (frequencies bigrams)))
         messages-map (map-sentences-to-bigrams messages bigram-frequencies)
-        scored-messages-map (reduce-kv #(assoc %1 %2 (calculate-score %3)) {} messages-map)]
-    (take 10 (reverse (sort-by val scored-messages-map)))))
+        scored-messages-map (reduce-kv #(assoc %1 %3 (calculate-score (%3 :ngrams))) {} messages-map)]
+    (first (reverse (sort-by val scored-messages-map)))))
+
+(defn post-highlight [highlight]
+  (client/post highlight-url
+               {:basic-auth ["slack" "74d237515b0e5423a294b4014875ca69"]
+                :body (json/write-str highlight)
+                :content-type :json}))
+
+(defn post-file-upload-highlight [channel]
+  (post-highlight (first (highlight-file-upload channel))))
+
+(defn parse-message [message]
+  (let [users (map transform-user (get-users))
+        user (find-by-id users (message "user"))]
+    [user (string/replace (message "text") #"<@(.*)>" #(str "@"
+                                                            ((find-by-id users (%1 1)) :name)))]))
+
+(defn make-channel-highlight [message]
+  (let [[user text] (parse-message (message :message))
+         content (str "@"
+                     (user :name)
+                     " posted an influential chat message: \""
+                     text
+                     "\".")]
+    {:content content
+     :label "slack"
+     :why (str "@"
+               (user :name)
+               " generated a lot of buzz")}))
+
+(defn post-channel-highlight [channel]
+  (let [[message score] (process-messages channel)]
+    (post-highlight (make-channel-highlight message))))
