@@ -20,4 +20,4 @@
                                 (post-file-upload-highlight
                                 (env :target-channel)))
                  p)
-    (ring/run-jetty handler {:port (or (env :port) 8080)})))
+    (ring/run-jetty handler {:port (Integer. (or (env :port) "8080"))})))
