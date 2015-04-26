@@ -14,11 +14,7 @@
 
 (defonce get-sentences (make-sentence-detector "resources/models/en-sent.bin"))
 (defonce tokenize (make-tokenizer "resources/models/en-token.bin"))
-(defonce detokenize
-  (make-detokenizer "resources/models/english-detokenizer.xml"))
 (defonce tag-pos (make-pos-tagger "resources/models/en-pos-maxent.bin"))
-(defonce find-name (make-name-finder "resources/models/en-ner-person.bin"))
-(defonce make-chunks (make-treebank-chunker "resources/models/en-chunker.bin"))
 
 (defn now [] (quot (System/currentTimeMillis) 1000))
 
