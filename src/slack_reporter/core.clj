@@ -165,8 +165,11 @@
   (> (message :comments-count) 0))
 
 (defn highlight-file-upload [channel]
-  (let [messages (map transform-file-share-message (get-file-shares channel))]
-    (map make-file-upload-highlight (filter has-comments messages))))
+  (let [messages (filter has-comments
+                         (map transform-file-share-message
+                              (get-file-shares channel)))]
+    (when (> (count messages) 0)
+      (map make-file-upload-highlight messages))))
 
 (defn tokenize-sentence [sentence]
   (tokenize sentence))
@@ -241,11 +244,12 @@
                " generated a lot of buzz")}))
 
 (defn post-highlight [highlight]
-  (client/post (env :titan-api-url)
-               {:basic-auth [(env :reporter-name)
-                             (env :reporter-password)]
-                :body (json/write-str highlight)
-                :content-type :json}))
+  (when (not (nil? highlight))
+    (client/post (env :titan-api-url)
+                 {:basic-auth [(env :reporter-name)
+                               (env :reporter-password)]
+                  :body (json/write-str highlight)
+                  :content-type :json})))
 
 (defn post-file-upload-highlight [channel]
   (post-highlight (first (highlight-file-upload channel))))
