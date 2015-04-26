@@ -1,4 +1,5 @@
 (ns slack-reporter.web
+  (:gen-class)
   (:require [environ.core :refer [env]]
             [overtone.at-at :as at-at]
             [ring.adapter.jetty :as ring]
@@ -10,7 +11,7 @@
 (defn handler [request]
   {:status 200
    :headers {"Content-Type" "text/plain"}
-   :body "I'm sorry, I'm afraid I can't let you do that, Dave."})
+   :body "I'm sorry, Dave, I'm afraid I can't do that."})
 
 (defn -main []
   (let [p (at-at/mk-pool)]
@@ -19,4 +20,4 @@
                                 (post-file-upload-highlight
                                 (env :target-channel)))
                  p)
-    (ring/run-jetty handler (or (env :port) "8080"))))
+    (ring/run-jetty handler {:port (or (env :port) 8080)})))
