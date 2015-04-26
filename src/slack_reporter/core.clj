@@ -241,7 +241,7 @@
      :label "slack"
      :why (str "@"
                (user :name)
-               " generated a lot of buzz")}))
+               " generated a lot of buzz in #important")}))
 
 (defn post-highlight [highlight]
   (when (not (nil? highlight))
