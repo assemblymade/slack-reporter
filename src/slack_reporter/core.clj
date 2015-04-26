@@ -5,18 +5,17 @@
             [opennlp.tools.filters :refer :all]
             [opennlp.treebank :refer [make-treebank-chunker]]
             [clojure.data.json :as json]
-            [clojure.pprint :refer [pprint]]
             [clojure.string :as string]))
 
 ;; TextRank/PageRank d (by convention)
 (defonce d 0.85)
-(defonce highlight-url "http://api.titan.dev:8787/changelogs/assembly/highlights")
-(defonce slack-token (env :slack-token))
-(defonce special-characters (string/split "! @ # $ % ^ & * ( ) < > ? . : , ' <https <http" #" "))
+(defonce special-characters
+  (string/split "@ # $ % ^ & * ( ) < > : , ' <https <http" #" "))
 
 (defonce get-sentences (make-sentence-detector "resources/models/en-sent.bin"))
 (defonce tokenize (make-tokenizer "resources/models/en-token.bin"))
-(defonce detokenize (make-detokenizer "resources/models/english-detokenizer.xml"))
+(defonce detokenize
+  (make-detokenizer "resources/models/english-detokenizer.xml"))
 (defonce tag-pos (make-pos-tagger "resources/models/en-pos-maxent.bin"))
 (defonce find-name (make-name-finder "resources/models/en-ner-person.bin"))
 (defonce make-chunks (make-treebank-chunker "resources/models/en-chunker.bin"))
@@ -79,7 +78,7 @@
 (defn get-channel-history [channel oldest]
   (get-and-parse-body
    (client/get (string/join ["https://slack.com/api/channels.history?token="
-                             slack-token
+                             (env :slack-token)
                              "&channel="
                              channel
                              "&count=500&oldest="
@@ -94,7 +93,7 @@
   (filter not-deleted
           ((get-and-parse-body
             (client/get (string/join ["https://slack.com/api/users.list?token="
-                                      slack-token])))
+                                     (env :slack-token)])))
            "members")))
 
 (def get-users (cache-results get-users (+ (now) (* 24 60 60))))
@@ -147,7 +146,7 @@
 (defn find-by-id [coll id]
   (first (filter #(= (% :id) id) coll)))
 
-(defn make-highlight [message]
+(defn make-file-upload-highlight [message]
   (let [users (map transform-user (get-users))
         user (find-by-id users (message :user))
         content (str "@" (user :name)
@@ -171,7 +170,7 @@
 
 (defn highlight-file-upload [channel]
   (let [messages (map transform-file-share-message (get-file-shares channel))]
-    (map make-highlight (filter has-comments messages))))
+    (map make-file-upload-highlight (filter has-comments messages))))
 
 (defn tokenize-sentence [sentence]
   (tokenize sentence))
@@ -179,10 +178,12 @@
 (defn partition-words [tokenized-sentence]
   (partition 2 1 tokenized-sentence))
 
-(def partition-tokenized-sentences (comp partition-words tokenize-sentence))
+(def partition-tokenized-sentences
+  (comp partition-words tokenize-sentence))
 
 (defn sentences->bigrams [message]
-  (map partition-tokenized-sentences (get-sentences (message "text"))))
+  (map partition-tokenized-sentences
+    (get-sentences (message "text"))))
 
 (defn messages->bigrams [messages]
   (map sentences->bigrams messages))
@@ -212,26 +213,23 @@
   (let [messages (get-messages channel)
         message-bigrams (messages->bigrams messages)
         sentence-bigrams (map #(apply concat %) message-bigrams)
-        bigrams (filter remove-special-characters (apply concat sentence-bigrams))
-        bigram-frequencies (reverse (sort-by val (frequencies bigrams)))
+        bigrams (filter remove-special-characters
+                        (apply concat sentence-bigrams))
+        bigram-frequencies (frequencies bigrams)
         messages-map (map-sentences-to-bigrams messages bigram-frequencies)
-        scored-messages-map (reduce-kv #(assoc %1 %3 (calculate-score (%3 :ngrams))) {} messages-map)]
+        scored-messages-map (reduce-kv #(assoc %1 %3 (calculate-score
+                                                       (%3 :ngrams)))
+                                                       {}
+                                                       messages-map)]
     (first (reverse (sort-by val scored-messages-map)))))
-
-(defn post-highlight [highlight]
-  (client/post highlight-url
-               {:basic-auth ["slack" "74d237515b0e5423a294b4014875ca69"]
-                :body (json/write-str highlight)
-                :content-type :json}))
-
-(defn post-file-upload-highlight [channel]
-  (post-highlight (first (highlight-file-upload channel))))
 
 (defn parse-message [message]
   (let [users (map transform-user (get-users))
         user (find-by-id users (message "user"))]
-    [user (string/replace (message "text") #"<@(.*)>" #(str "@"
-                                                            ((find-by-id users (%1 1)) :name)))]))
+    [user (string/replace
+           (message "text")
+           #"<@(.*)>"
+           #(str "@" ((find-by-id users (%1 1)) :name)))]))
 
 (defn make-channel-highlight [message]
   (let [[user text] (parse-message (message :message))
@@ -245,6 +243,16 @@
      :why (str "@"
                (user :name)
                " generated a lot of buzz")}))
+
+(defn post-highlight [highlight]
+  (client/post (env :titan-api-url)
+               {:basic-auth [(env :reporter-name)
+                             (env :reporter-password)]
+                :body (json/write-str highlight)
+                :content-type :json}))
+
+(defn post-file-upload-highlight [channel]
+  (post-highlight (first (highlight-file-upload channel))))
 
 (defn post-channel-highlight [channel]
   (let [[message score] (process-messages channel)]
