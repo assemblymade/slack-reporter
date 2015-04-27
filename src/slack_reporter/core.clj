@@ -32,6 +32,9 @@
                          :last-results results})
           results)))))
 
+(defn truncate [s n]
+  (subs s 0 (min (count s) n)))
+
 (defn get-and-parse-body [response]
   (json/read-str (:body response)))
 
@@ -238,10 +241,8 @@
                      text
                      "\".")]
     {:content content
-     :label (str "@" (user :name) " said something noteworthy on Slack")
-     :why (str "@"
-               (user :name)
-               " generated a lot of buzz in #important")}))
+     :label (str "@" (user :name) " said something noteworthy on Slack in #important")
+     :why (str (truncate content 140) "…")}))
 
 (defn post-highlight [highlight]
   (when (not (nil? highlight))
