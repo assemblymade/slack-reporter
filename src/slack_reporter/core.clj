@@ -238,7 +238,7 @@
                      text
                      "\".")]
     {:content content
-     :label "slack"
+     :label (str "@" (user :name) " said something noteworthy on Slack")
      :why (str "@"
                (user :name)
                " generated a lot of buzz in #important")}))
