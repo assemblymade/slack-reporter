@@ -1,5 +1,6 @@
 (ns slack-reporter.burst-detector
-  (:require [environ.core :refer [env]]
+  (:require [clojure.string :as string]
+            [environ.core :refer [env]]
             [slack-reporter.core :as core :refer [now]]
             [taoensso.carmine :as car]))
 
@@ -27,26 +28,35 @@
 (defn empty-bucket [k start stop]
   (with-car (car/zremrangebyscore k start stop)))
 
+(defn transform-message [message]
+  (let [users (map core/transform-user (core/get-users))]
+    (str
+     (message :user_name)
+     ": "
+     (string/replace
+      (message :text)
+      #"<@(.*)>"
+      #(str "@" ((core/find-by-id users (%1 1)) :name))))))
+
 (defn create-highlight [messages]
   (let [message (first messages)
         channel-name (message :channel_name)
         text (message :text)
         username (message :user_name)]
-    (core/post-highlight {:content (str "@"
+    (core/post-highlight {:content (str "### @"
                                         username
                                         " posted an update that generated a lot of buzz in #"
                                         channel-name
-                                        ": \""
-                                        (clojure.string/join
-                                         "\n"
-                                         (map #(str
-                                                (% :user_name)
-                                                ": "
-                                                (% :text))
-                                              (take 3 messages)))
-                                        "\"")
-                          :label (str "@" username " got the conversation rolling!")
-                          :why (str "\"" (core/truncate text 140) "…")})))
+                                        "\n\n"
+                                        (string/join
+                                         "\n-"
+                                         (map transform-message (take 3 messages))))
+                          :why (str "@"
+                                    username
+                                    " got the conversation rolling in #"
+                                    channel-name
+                                    "!")
+                          :label (str "\"" (core/truncate text 140) "…")})))
 
 (defn burst?
   ([key size]
@@ -54,16 +64,18 @@
          stop (now)
          n (with-car (car/zcount key start stop))]
      (when (> n size)
-       (empty-bucket key start stop)
+       (println n)
        (let [last-burst (Integer. (or (last-burst-at key) 0))
              wait-time (Integer. (or (wait-for key) 0))]
          (last-burst-at key stop)
-         (when (< (- (now) last-burst) five-minutes)
-           (wait-for key (* 2 wait-time)))
+         (when (< (- (now) last-burst) wait-time)
+           (wait-for key (* 2 wait-time))
+           (empty-bucket key start stop))
          (when (> (- (now) last-burst) wait-time)
            (wait-for key ten-minutes)
            (create-highlight (with-car
-                               (car/zrangebyscore key start stop))))))))
+                               (car/zrangebyscore key start stop)))
+           (empty-bucket key start stop))))))
   ([key size start stop]
    (let [n (with-car (car/zcount key start stop))]
      (when (> n size)
