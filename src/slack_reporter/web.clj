@@ -1,23 +1,38 @@
 (ns slack-reporter.web
   (:gen-class)
-  (:require [environ.core :refer [env]]
+  (:require [clojure.data.json :as json]
+            [compojure.core :refer [defroutes GET POST]]
+            [environ.core :refer [env]]
             [overtone.at-at :as at-at]
-            [ring.adapter.jetty :as ring]
+            [ring.adapter.jetty :refer [run-jetty]]
+            [ring.middleware.defaults :refer [api-defaults wrap-defaults]]
             [slack-reporter.core :refer [post-file-upload-highlight
-                                         post-channel-highlight]]))
+                                         post-channel-highlight]]
+            [slack-reporter.burst-detector :as burst]))
 
-(defonce twelve-hours (* 12 60 60 1000))
+(defonce twenty-four-hours (* 24 60 60 1000))
 
-(defn handler [request]
-  {:status 200
-   :headers {"Content-Type" "text/plain"}
-   :body "I'm sorry, Dave, I'm afraid I can't do that."})
+(defroutes app-routes
+  (GET "/" [] {:status 200
+               :headers {"Content-Type" "text/plain"}
+               :body "ok"})
+  (POST "/webhook" {params :params}
+        (when (= (params :token) (env :slack-webhook-token))
+          (burst/add (params :channel_id) (dissoc params :token))
+          (burst/burst? (params :channel_id) (Integer. (env :bucket-size)))
+          {:status 200
+           :headers {"Content-Type" "text/plain"}
+           :body "ok"})))
+
+(def app (wrap-defaults app-routes
+                        (assoc api-defaults
+                          :keywordize true)))
 
 (defn -main []
   (let [p (at-at/mk-pool)]
-    (at-at/every twelve-hours #((post-channel-highlight
+    (at-at/every twenty-four-hours #((post-channel-highlight
                                 (env :target-channel))
                                 (post-file-upload-highlight
                                 (env :target-channel)))
                  p)
-    (ring/run-jetty handler {:port (Integer. (or (env :port) "8080"))})))
+    (run-jetty app {:port (Integer. (or (env :port) "8080"))})))
