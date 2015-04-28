@@ -3,7 +3,7 @@
             [slack-reporter.core :as core :refer [now]]
             [taoensso.carmine :as car]))
 
-(def redis-conn {:pool {} :spec {:uri (env :redistogo-url)}})
+(def redis-conn {:pool {} :spec {:uri (env :rediscloud-url)}})
 (defmacro with-car [& body] `(car/wcar redis-conn ~@body))
 
 (def five-minutes (* 5 60))
