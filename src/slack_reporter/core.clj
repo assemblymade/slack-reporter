@@ -156,8 +156,8 @@
                      (message :name)
                      "</a> that's generating a lot of buzz.")]
     {:content content
-     :label "slack"
-     :why (str "@"
+     :why (str "@" (user :name) " posted something great")
+     :label (str "@"
                (user :name)
                " uploaded a file with "
                (message :comments-count)
