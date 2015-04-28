@@ -156,7 +156,7 @@
                      (message :name)
                      "</a> that's generating a lot of buzz.")]
     {:content content
-     :why (str "@" (user :name) " posted something great")
+     :why (message :name)
      :label (str "@"
                (user :name)
                " uploaded a file with "
