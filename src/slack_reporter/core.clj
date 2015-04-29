@@ -148,20 +148,18 @@
 (defn make-file-upload-highlight [message]
   (let [users (map transform-user (get-users))
         user (find-by-id users (message :user))
+        comments-count (message :comments-count)
         content (str "@" (user :name)
-                     " posted a " (message :type)
+                     " uploaded a " (message :type)
                      " file called <a href=\""
                      (message :url)
                      "\">"
                      (message :name)
-                     "</a> that's generating a lot of buzz.")]
+                     "</a> that has " comments-count (if (= comments-count 1)
+                                                       " comment."
+                                                       " comments."))]
     {:content content
-     :why (message :name)
-     :label (str "@"
-               (user :name)
-               " uploaded a file with "
-               (message :comments-count)
-               " comments")
+     :event_happened_at (message :timestamp)
      :source (message :url)}))
 
 (defn has-comments [message]
@@ -235,14 +233,10 @@
 
 (defn make-channel-highlight [message]
   (let [[user text] (parse-message (message :message))
-         content (str "@"
-                     (user :name)
-                     " posted an influential chat message: \""
-                     text
-                     "\".")]
-    {:content content
-     :label (str "@" (user :name) " said something noteworthy on Slack in #important")
-     :why (str (truncate content 140) "…")}))
+         content (str "@" (user :name) ": " text)]
+    {:actors [(str "@" (user :name))]
+     :content content
+     :event_happened_at (message :timestamp)}))
 
 (defn post-highlight [highlight]
   (when (not (nil? highlight))

@@ -43,20 +43,15 @@
         channel-name (message :channel_name)
         text (message :text)
         username (message :user_name)]
-    (core/post-highlight {:content (str "### @"
+    (core/post-highlight {:content (str "@"
                                         username
-                                        " posted an update that generated a lot of buzz in #"
+                                        " kicked off the conversation in #"
                                         channel-name
                                         "\n\n"
                                         (string/join
                                          "\n-"
                                          (map transform-message (take 3 messages))))
-                          :why (str "@"
-                                    username
-                                    " got the conversation rolling in #"
-                                    channel-name
-                                    "!")
-                          :label (str "\"" (core/truncate text 140) "…")})))
+                          :event_happened_at (message :timestamp)})))
 
 (defn burst?
   ([key size]
