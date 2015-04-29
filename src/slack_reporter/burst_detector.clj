@@ -69,7 +69,7 @@
                                         ": "
                                         text
                                         " &mdash;&mdash; "
-                                        (participant-strings messages username)
+                                        (participant-string messages username)
                                         " joined in.")
                           :occurred_at (message :timestamp)})))
 
