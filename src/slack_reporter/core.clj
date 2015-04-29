@@ -151,11 +151,11 @@
         comments-count (message :comments-count)
         content (str "@" (user :name)
                      " uploaded a " (message :type)
-                     " file called <a href=\""
-                     (message :url)
-                     "\">"
+                     " file called ["
                      (message :name)
-                     "</a> that has " comments-count (if (= comments-count 1)
+                     "]("
+                     (message :url)
+                     ") that has " comments-count (if (= comments-count 1)
                                                        " comment."
                                                        " comments."))]
     {:content content
