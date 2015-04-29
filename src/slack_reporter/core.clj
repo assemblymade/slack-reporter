@@ -159,7 +159,7 @@
                                                        " comment."
                                                        " comments."))]
     {:content content
-     :event_happened_at (message :timestamp)
+     :occurred_at (message :timestamp)
      :source (message :url)}))
 
 (defn has-comments [message]
@@ -236,7 +236,7 @@
          content (str "@" (user :name) ": " text)]
     {:actors [(str "@" (user :name))]
      :content content
-     :event_happened_at (message :timestamp)}))
+     :occurred_at (message :timestamp)}))
 
 (defn post-highlight [highlight]
   (when (not (nil? highlight))

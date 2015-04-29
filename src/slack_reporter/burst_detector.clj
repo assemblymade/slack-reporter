@@ -38,20 +38,40 @@
       #"<@(.*)>"
       #(str "@" ((core/find-by-id users (%1 1)) :name))))))
 
+(defn participants [msgs]
+  (set (map #(str "@" (% :user_name))
+            msgs)))
+
+(defn participant-string [messages username]
+  (let [p (filter #(not= (%) (str "@" username))
+                  (participants messages))]
+    (when (= (count p) 1)
+      (first p))
+    (when (= (count p) 2)
+      (string/join " and "))
+    (when (> (count p) 2)
+      (let [r (- (count p) 2)]
+        (str (string/join ", " (take 2 p))
+           ", and " (if (= r 1)
+                      " other"
+                      " others"))))))
+
 (defn create-highlight [messages]
   (let [message (first messages)
         channel-name (message :channel_name)
         text (message :text)
         username (message :user_name)]
-    (core/post-highlight {:content (str "@"
+    (core/post-highlight {:actors (participants messages)
+                          :content (str "@"
                                         username
                                         " kicked off the conversation in #"
                                         channel-name
-                                        "\n\n"
-                                        (string/join
-                                         "\n-"
-                                         (map transform-message (take 3 messages))))
-                          :event_happened_at (message :timestamp)})))
+                                        ": "
+                                        text
+                                        " &mdash;&mdash; "
+                                        (participant-strings messages username)
+                                        " joined in.")
+                          :occurred_at (message :timestamp)})))
 
 (defn burst?
   ([key size]
@@ -59,15 +79,14 @@
          stop (now)
          n (with-car (car/zcount key start stop))]
      (when (> n size)
-       (println n)
        (let [last-burst (Integer. (or (last-burst-at key) 0))
              wait-time (Integer. (or (wait-for key) 0))]
-         (last-burst-at key stop)
          (when (< (- (now) last-burst) wait-time)
            (wait-for key (* 2 wait-time))
            (empty-bucket key start stop))
          (when (> (- (now) last-burst) wait-time)
            (wait-for key ten-minutes)
+           (last-burst-at key stop)
            (create-highlight (with-car
                                (car/zrangebyscore key start stop)))
            (empty-bucket key start stop))))))
