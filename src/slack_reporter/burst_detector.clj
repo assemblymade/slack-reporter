@@ -51,29 +51,30 @@
 (defn participant-string [msgs username]
   (let [p (filter #(not= % (str "@" username))
                   (participants msgs))]
-    (when (= (count p) 1)
-      (first p))
-    (when (= (count p) 2)
-      (string/join " and "))
-    (when (> (count p) 2)
-      (let [r (- (count p) 2)]
-        (str (string/join ", " (take 2 p))
-           ", and "
-           r
-           (if (= r 1)
-             " other"
-             " others"))))))
+    (cond
+     (= (count p) 1) (first p)
+     (= (count p) 2) (string/join " and " p)
+     (= (count p) 3) (str (first p) ", " (second p) ", and " (last p))
+     (> (count p) 3) (let [r (- (count p) 2)]
+                       (str (string/join ", " (take 2 p))
+                            ", and "
+                            r
+                            (if (= r 1)
+                              " other"
+                              " others"))))))
 
 (defn create-highlight [messages]
   (let [message (first messages)
         channel-name (message :channel_name)
         text (message :text)
-        username (message :user_name)]
-    (core/post-highlight {:actors (participants messages)
+        username (message :user_name)
+        actors (participants messages)]
+    (core/post-highlight {:actors actors
                           :content (str "@"
                                         username
-                                        " kicked off a conversation with "
-                                        (participant-string messages username)
+                                        " kicked off a conversation"
+                                        (when (> (count actors) 1)
+                                          (str " with "(participant-string messages username)))
                                         " in #"
                                         channel-name
                                         ": "
@@ -87,6 +88,7 @@
    (let [start (- (now) five-minutes)
          stop (now)
          n (with-car (car/zcount key start stop))]
+     (create-highlight (with-car (car/zrangebyscore key start stop)))
      (when (> n size)
        (let [last-burst (Integer. (or (last-burst-at key) 0))
              wait-time (Integer. (or (wait-for key) 0))]
