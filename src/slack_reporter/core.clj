@@ -16,6 +16,11 @@
 (defonce tokenize (make-tokenizer "resources/models/en-token.bin"))
 (defonce tag-pos (make-pos-tagger "resources/models/en-pos-maxent.bin"))
 
+(def slackbot {:id "USLACKBOT"
+               :name "slackbot"
+               :avatar-url "https://slack-assets2.s3-us-west-2.amazonaws.com/
+                            10068/img/slackbot_192.png"})
+
 (defn now [] (quot (System/currentTimeMillis) 1000))
 
 (defn get-start-time
@@ -95,11 +100,12 @@
   (not (user "deleted")))
 
 (defn get-users []
-  (filter not-deleted
-          ((get-and-parse-body
-            (client/get (string/join ["https://slack.com/api/users.list?token="
-                                     (env :slack-token)])))
-           "members")))
+  (cons (filter not-deleted
+                ((get-and-parse-body
+                  (client/get (string/join ["https://slack.com/api/users.list?token="
+                                       (env :slack-token)])))
+                 "members"))
+        slackbot))
 
 (def get-users (cache-results get-users (+ (now) (* 24 60 60))))
 
