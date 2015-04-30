@@ -155,9 +155,11 @@
                      (message :name)
                      "]("
                      (message :url)
-                     ") that has " comments-count (if (= comments-count 1)
-                                                       " comment."
-                                                       " comments."))]
+                     ") that has "
+                     comments-count
+                     (if (= comments-count 1)
+                       " comment."
+                       " comments."))]
     {:content content
      :occurred_at (message :timestamp)
      :source (message :url)}))
@@ -221,7 +223,7 @@
                                                        (%3 :ngrams)))
                                                        {}
                                                        messages-map)]
-    (first (reverse (sort-by val scored-messages-map)))))
+    (first (sort-by val > scored-messages-map))))
 
 (defn parse-message [message]
   (let [users (map transform-user (get-users))
@@ -233,7 +235,7 @@
 
 (defn make-channel-highlight [message]
   (let [[user text] (parse-message (message :message))
-         content (str "@" (user :name) ": " text)]
+         content (str "@" (user :name) " said something important: " text)]
     {:actors [(str "@" (user :name))]
      :content content
      :occurred_at (message :timestamp)}))
