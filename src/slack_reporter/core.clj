@@ -3,7 +3,6 @@
             [environ.core :refer [env]]
             [opennlp.nlp :refer :all]
             [opennlp.tools.filters :refer :all]
-            [opennlp.treebank :refer [make-treebank-chunker]]
             [clojure.data.json :as json]
             [clojure.string :as string]))
 
