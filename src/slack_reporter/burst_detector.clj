@@ -28,8 +28,11 @@
 (defn empty-bucket [k start stop]
   (with-car (car/zremrangebyscore k start stop)))
 
+(defn get-users []
+  (map core/transform-user (core/get-users)))
+
 (defn transform-message [message]
-  (let [users (map core/transform-user (core/get-users))]
+  (let [users (get-users)]
     (str
      (message :user_name)
      ": "
@@ -39,12 +42,15 @@
       #(str "@" ((core/find-by-id users (%1 1)) :name))))))
 
 (defn participants [msgs]
-  (set (map #(str "@" (% :user_name))
-            msgs)))
+  (let [m (map #(str "@" (% :user_name)) msgs)
+        f (frequencies m)]
+    (into (sorted-set-by #(compare [(get f %2) %2]
+                                   [(get f %1) %1]))
+          m)))
 
-(defn participant-string [messages username]
-  (let [p (filter #(not= (%) (str "@" username))
-                  (participants messages))]
+(defn participant-string [msgs username]
+  (let [p (filter #(not= % (str "@" username))
+                  (participants msgs))]
     (when (= (count p) 1)
       (first p))
     (when (= (count p) 2)
@@ -52,9 +58,11 @@
     (when (> (count p) 2)
       (let [r (- (count p) 2)]
         (str (string/join ", " (take 2 p))
-           ", and " (if (= r 1)
-                      " other"
-                      " others"))))))
+           ", and "
+           r
+           (if (= r 1)
+             " other"
+             " others"))))))
 
 (defn create-highlight [messages]
   (let [message (first messages)
@@ -64,13 +72,12 @@
     (core/post-highlight {:actors (participants messages)
                           :content (str "@"
                                         username
-                                        " kicked off the conversation in #"
+                                        " kicked off a conversation with "
+                                        (participant-string messages username)
+                                        " in #"
                                         channel-name
                                         ": "
-                                        text
-                                        " &mdash;&mdash; "
-                                        (participant-string messages username)
-                                        " joined in.")
+                                        text)
                           :occurred_at (message :timestamp)})))
 
 (defn burst?
@@ -94,3 +101,13 @@
    (let [n (with-car (car/zcount key start stop))]
      (when (> n size)
        (with-car (car/zrangebyscore key start stop))))))
+
+
+(defn- fake-burst [c]
+  (let [messages (map #(assoc
+                         (clojure.walk/keywordize-keys %)
+                         :channel_name "important"
+                         :user_name (let [users (get-users)]
+                                      ((core/find-by-id users (% "user")) :name)))
+                      (core/get-messages c))]
+    (create-highlight messages)))
