@@ -36,7 +36,7 @@
   (subs s 0 (min (count s) n)))
 
 (defn round-to [p d]
-  (let [factor (Math/pow 10 precision)]
+  (let [factor (Math/pow 10 p)]
     (/ (Math/round (* d factor)) factor)))
 
 (def round-to-2 (partial round-to 2))
