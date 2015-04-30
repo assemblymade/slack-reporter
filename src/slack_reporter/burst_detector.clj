@@ -44,8 +44,9 @@
 (defn participants [msgs]
   (let [m (map #(str "@" (% :user_name)) msgs)
         f (frequencies m)]
-    (into (sorted-set-by #(compare [(get f %2) %2]
-                                   [(get f %1) %1]))
+    (into (sorted-set-by
+           #(compare [(get f %2) %2]
+                     [(get f %1) %1]))
           m)))
 
 (defn participant-string [msgs username]
@@ -88,7 +89,6 @@
    (let [start (- (now) five-minutes)
          stop (now)
          n (with-car (car/zcount key start stop))]
-     (create-highlight (with-car (car/zrangebyscore key start stop)))
      (when (> n size)
        (let [last-burst (Integer. (or (last-burst-at key) 0))
              wait-time (Integer. (or (wait-for key) 0))]
