@@ -78,7 +78,9 @@
                                         channel-name
                                         ": "
                                         text)
-                          :occurred_at (message :timestamp)})))
+                          :occurred_at (message :timestamp)
+                          :category "Conversation Burst"
+                          :score (core/round-to-2 (min (/ (count messages) 100)))})))
 
 (defn burst?
   ([key size]

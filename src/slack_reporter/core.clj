@@ -35,6 +35,12 @@
 (defn truncate [s n]
   (subs s 0 (min (count s) n)))
 
+(defn round-to [p d]
+  (let [factor (Math/pow 10 precision)]
+    (/ (Math/round (* d factor)) factor)))
+
+(def round-to-2 (partial round-to 2))
+
 (defn get-and-parse-body [response]
   (json/read-str (:body response)))
 
@@ -162,7 +168,9 @@
                        " comments."))]
     {:content content
      :occurred_at (message :timestamp)
-     :source (message :url)}))
+     :source (message :url)
+     :category "File Upload"
+     :score (round-to-2 (min (* (/ comments-count 100) 10) 1.0))}))
 
 (defn has-comments [message]
   (> (message :comments-count) 0))
@@ -220,9 +228,9 @@
         bigram-frequencies (frequencies bigrams)
         messages-map (map-sentences-to-bigrams messages bigram-frequencies)
         scored-messages-map (reduce-kv #(assoc %1 %3 (calculate-score
-                                                       (%3 :ngrams)))
-                                                       {}
-                                                       messages-map)]
+                                                      (%3 :ngrams)))
+                                       {}
+                                       messages-map)]
     (first (sort-by val > scored-messages-map))))
 
 (defn parse-message [message]
@@ -233,12 +241,14 @@
            #"<@(.*)>"
            #(str "@" ((find-by-id users (%1 1)) :name)))]))
 
-(defn make-channel-highlight [message]
+(defn make-channel-highlight [message score]
   (let [[user text] (parse-message (message :message))
          content (str "@" (user :name) " said something important: " text)]
     {:actors [(str "@" (user :name))]
      :content content
-     :occurred_at (message :timestamp)}))
+     :occurred_at (message :timestamp)
+     :category "Important Comment"
+     :score (round-to-2 (min (/ score 100) 1.0))}))
 
 (defn post-highlight [highlight]
   (when (not (nil? highlight))
@@ -253,4 +263,4 @@
 
 (defn post-channel-highlight [channel]
   (let [[message score] (process-messages channel)]
-    (post-highlight (make-channel-highlight message))))
+    (post-highlight (make-channel-highlight message score))))
