@@ -31,6 +31,6 @@
 (defn -main []
   (let [p (at-at/mk-pool)]
     (at-at/every twenty-four-hours
-                 #((post-channel-highlight (env :target-channel)))
+                 #(post-channel-highlight (env :target-channel))
                  p)
     (run-jetty app {:port (Integer. (or (env :port) "8080"))})))

@@ -99,12 +99,13 @@
   (not (user "deleted")))
 
 (defn get-users []
-  (cons (filter not-deleted
-                ((get-and-parse-body
-                  (client/get (string/join ["https://slack.com/api/users.list?token="
-                                       (env :slack-token)])))
-                 "members"))
-        slackbot))
+  (flatten (cons (filter not-deleted
+                 ((get-and-parse-body
+                   (client/get (string/join
+                                ["https://slack.com/api/users.list?token="
+                                 (env :slack-token)])))
+                  "members"))
+         slackbot)))
 
 (def get-users (cache-results get-users (+ (now) (* 24 60 60))))
 
