@@ -71,15 +71,14 @@
         username (message :user_name)
         actors (participants messages)]
     (core/post-highlight {:actors actors
-                          :content (str "@"
+                          :content text
+                          :label (str "@"
                                         username
                                         " kicked off a conversation"
                                         (when (> (count actors) 1)
                                           (str " with "(participant-string messages username)))
                                         " in #"
-                                        channel-name
-                                        ": "
-                                        text)
+                                        channel-name)
                           :occurred_at (message :timestamp)
                           :category "Conversation Burst"
                           :score (core/round-to-2 (min (/ (count messages) 100)))})))

@@ -1,5 +1,7 @@
 (ns slack-reporter.core
   (:require [clj-http.client :as client]
+            [clj-time.core :as t]
+            [clj-time.coerce :as c]
             [environ.core :refer [env]]
             [opennlp.nlp :refer :all]
             [opennlp.tools.filters :refer :all]
@@ -45,6 +47,9 @@
           (reset! cache {:last-called-at (now)
                          :last-results results})
           results)))))
+
+(defn format-ts [ts]
+  (c/to-sql-time (* 1000 (int (read-string ts)))))
 
 (defn truncate [s n]
   (subs s 0 (min (count s) n)))
@@ -170,19 +175,12 @@
   (let [users (map transform-user (get-users))
         user (find-by-id users (message :user))
         comments-count (message :comments-count)
-        content (str "@" (user :name)
+        label (str "@" (user :name)
                      " uploaded a " (message :type)
-                     " file called ["
-                     (message :name)
-                     "]("
-                     (message :url)
-                     ") that has "
-                     comments-count
-                     (if (= comments-count 1)
-                       " comment."
-                       " comments."))]
-    {:content content
-     :occurred_at (message :timestamp)
+                     " file")]
+    {:content (message :name)
+     :label label
+     :occurred_at (format-ts (message :timestamp))
      :source (message :url)
      :category "File Upload"
      :score (round-to-2 (min (* (/ comments-count 100) 10) 1.0))}))
@@ -258,10 +256,11 @@
 
 (defn make-channel-highlight [message score]
   (let [[user text] (parse-message (message :message))
-         content (str "@" (user :name) " said something important: " text)]
+         label (str "@" (user :name) " said something important")]
     {:actors [(str "@" (user :name))]
-     :content content
-     :occurred_at (message :timestamp)
+     :content text
+     :label label
+     :occurred_at (format-ts (message :timestamp))
      :category "Important Comment"
      :score (round-to-2 (min (/ score 100) 1.0))}))
 

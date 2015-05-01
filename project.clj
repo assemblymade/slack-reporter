@@ -6,6 +6,7 @@
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [org.clojure/data.json "0.2.6"]
                  [clj-http "1.1.0"]
+                 [clj-time "0.9.0"]
                  [clojure-opennlp "0.3.3"]
                  [compojure "1.3.3"]
                  [com.taoensso/carmine "2.9.2"]
