@@ -15,11 +15,20 @@
 (defonce tokenize (make-tokenizer "resources/models/en-token.bin"))
 (defonce tag-pos (make-pos-tagger "resources/models/en-pos-maxent.bin"))
 
-(def slackbot {:id "USLACKBOT"
+(def slackbot {"id" "USLACKBOT"
+               :id "USLACKBOT"
+               "name" "slackbot"
                :name "slackbot"
+               :user_name "slackbot"
+               "avatar_url" "https://slack-assets2.s3-us-west-2.amazonaws.com/
+                            10068/img/slackbot_192.png"
                :avatar-url "https://slack-assets2.s3-us-west-2.amazonaws.com/
                             10068/img/slackbot_192.png"
-               :profile {:real-name "Slackbot"}})
+               :avatar_url "https://slack-assets2.s3-us-west-2.amazonaws.com/
+                            10068/img/slackbot_192.png"
+               "profile" {"real_name" "Slackbot"}
+               :profile {:real-name "Slackbot"
+                         :real_name "Slackbot"}})
 
 (defn now [] (quot (System/currentTimeMillis) 1000))
 
@@ -100,13 +109,12 @@
   (not (user "deleted")))
 
 (defn get-users []
-  (flatten (cons (filter not-deleted
-                 ((get-and-parse-body
-                   (client/get (string/join
-                                ["https://slack.com/api/users.list?token="
-                                 (env :slack-token)])))
-                  "members"))
-         slackbot)))
+  (conj (filter not-deleted
+           ((get-and-parse-body
+             (client/get (string/join
+                          ["https://slack.com/api/users.list?token="
+                           (env :slack-token)])))
+            "members")) slackbot))
 
 (def get-users (cache-results get-users (+ (now) (* 24 60 60))))
 
