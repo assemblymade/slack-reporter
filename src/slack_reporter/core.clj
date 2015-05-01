@@ -18,7 +18,8 @@
 (def slackbot {:id "USLACKBOT"
                :name "slackbot"
                :avatar-url "https://slack-assets2.s3-us-west-2.amazonaws.com/
-                            10068/img/slackbot_192.png"})
+                            10068/img/slackbot_192.png"
+               :profile {:real-name "Slackbot"}})
 
 (defn now [] (quot (System/currentTimeMillis) 1000))
 
