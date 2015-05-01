@@ -19,5 +19,6 @@
   :main ^:skip-aot slack-reporter.web
   :uberjar-name "slack-reporter.standalone.jar"
   :profiles {:uberjar {:aot :all}}
+  :repl-options {:timeout 120000}
   :ring {:handler slack-reporter.web/app})
 
