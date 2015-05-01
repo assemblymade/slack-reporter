@@ -257,7 +257,7 @@
 (defn make-channel-highlight [message score]
   (let [[user text] (parse-message (message :message))
          label (str "@" (user :name) " said something important")]
-    {:actors [(str "@" (user :name))]
+    {:actors [(user :name)]
      :content text
      :label label
      :occurred_at (format-ts (message :timestamp))

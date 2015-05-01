@@ -42,7 +42,7 @@
       #(str "@" ((core/find-by-id users (%1 1)) :name))))))
 
 (defn participants [msgs]
-  (let [m (map #(str "@" (% :user_name)) msgs)
+  (let [m (map #(% :user_name) msgs)
         f (frequencies m)]
     (into (sorted-set-by
            #(compare [(get f %2) %2]
@@ -50,7 +50,7 @@
           m)))
 
 (defn participant-string [msgs username]
-  (let [p (filter #(not= % (str "@" username))
+  (let [p (filter #(not= % username)
                   (participants msgs))]
     (cond
      (= (count p) 1) (first p)
@@ -74,10 +74,7 @@
                           :content text
                           :label (str "@"
                                         username
-                                        " kicked off a conversation"
-                                        (when (> (count actors) 1)
-                                          (str " with "(participant-string messages username)))
-                                        " in #"
+                                        " kicked off a conversation in #"
                                         channel-name)
                           :occurred_at (core/format-ts (message :timestamp))
                           :category "Conversation Burst"
