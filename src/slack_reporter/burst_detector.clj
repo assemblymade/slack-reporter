@@ -79,7 +79,7 @@
                                           (str " with "(participant-string messages username)))
                                         " in #"
                                         channel-name)
-                          :occurred_at (message :timestamp)
+                          :occurred_at (core/format-ts (message :timestamp))
                           :category "Conversation Burst"
                           :score (core/round-to-2 (min (/ (count messages) 100)))})))
 
