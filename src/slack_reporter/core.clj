@@ -49,7 +49,8 @@
           results)))))
 
 (defn format-ts [ts]
-  (c/to-sql-time (* 1000 (int (read-string ts)))))
+  (println ts)
+  (str (c/to-sql-time (* 1000 (int (read-string ts))))))
 
 (defn truncate [s n]
   (subs s 0 (min (count s) n)))
@@ -251,8 +252,9 @@
         user (find-by-id users (message "user"))]
     [user (string/replace
            (message "text")
-           #"<@(.*)>"
-           #(str "@" ((find-by-id users (%1 1)) :name)))]))
+           #"<@([a-z][A-Z]+)>"
+           #(when %1
+              (str "@" ((find-by-id users (%1 1)) :name))))]))
 
 (defn make-channel-highlight [message score]
   (let [[user text] (parse-message (message :message))
@@ -260,7 +262,7 @@
     {:actors [(user :name)]
      :content text
      :label label
-     :occurred_at (format-ts (message :timestamp))
+     :occurred_at (format-ts (get-in message [:message "ts"]))
      :category "Important Comment"
      :score (round-to-2 (min (/ score 100) 1.0))}))
 

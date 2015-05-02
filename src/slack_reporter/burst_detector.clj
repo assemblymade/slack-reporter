@@ -76,7 +76,7 @@
                                         username
                                         " kicked off a conversation in #"
                                         channel-name)
-                          :occurred_at (core/format-ts (message :timestamp))
+                          :occurred_at (core/format-ts (message :ts))
                           :category "Conversation Burst"
                           :score (core/round-to-2 (min (/ (count messages) 100)))})))
 
