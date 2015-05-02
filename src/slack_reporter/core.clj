@@ -49,7 +49,6 @@
           results)))))
 
 (defn format-ts [ts]
-  (println ts)
   (str (c/to-sql-time (* 1000 (int (read-string ts))))))
 
 (defn truncate [s n]
