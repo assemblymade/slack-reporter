@@ -251,7 +251,7 @@
         user (find-by-id users (message "user"))]
     [user (string/replace
            (message "text")
-           #"<@([a-z][A-Z]+)>"
+           #"<@(.*)>"
            #(when %1
               (str "@" ((find-by-id users (%1 1)) :name))))]))
 
