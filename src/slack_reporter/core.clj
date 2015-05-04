@@ -101,14 +101,17 @@
 
 (defn get-channel-history [channel oldest]
   (get-and-parse-body
-   (client/get (string/join ["https://slack.com/api/channels.history?token="
-                             (env :slack-token)
-                             "&channel="
-                             channel
-                             "&count=500&oldest="
-                             oldest]))))
+   (client/get (str "https://slack.com/api/channels.history?token="
+                    (env :slack-token)
+                    "&channel="
+                    channel
+                    "&count=500&oldest="
+                    oldest))))
 
 (def get-channel-history (cache-results get-channel-history (+ (now) 60)))
+
+(defn not-archived [c]
+  (not (c "is_archived")))
 
 (defn not-deleted [user]
   (not (user "deleted")))
@@ -116,12 +119,20 @@
 (defn get-users []
   (conj (filter not-deleted
            ((get-and-parse-body
-             (client/get (string/join
-                          ["https://slack.com/api/users.list?token="
-                           (env :slack-token)])))
+             (client/get (str "https://slack.com/api/users.list?token="
+                              (env :slack-token))))
             "members")) slackbot))
 
 (def get-users (cache-results get-users (+ (now) (* 24 60 60))))
+
+(defn get-channels []
+  (filter not-archived
+          ((get-and-parse-body
+            (client/get (str "https://slack.com/api/channels.list?token="
+                             (env :slack-token))))
+           "channels")))
+
+(def get-channels (cache-results get-channels (+ (now) (* 60 60))))
 
 (defn get-file-shares [channel]
   (let [history (get-channel-history channel (get-start-time))]
@@ -151,6 +162,9 @@
         get-user-real-name
         get-user-avatar-url))
 
+(defn transform-channel [c]
+  (clojure.walk/keywordize-keys c))
+
 (defn transform-file-share-message [message]
   (let [[user name type url comments-count timestamp]
         (parse-file-share-message message)]
@@ -163,10 +177,10 @@
 
 (defn transform-user [user]
   (let [[id name real-name avatar-url] (parse-user user)]
-     {:id id
-      :name name
-      :real-name real-name
-      :avatar-url avatar-url}))
+    {:id id
+     :name name
+     :real-name real-name
+     :avatar-url avatar-url}))
 
 (defn find-by-id [coll id]
   (first (filter #(= (% :id) id) coll)))
@@ -246,14 +260,40 @@
                                        messages-map)]
     (first (sort-by val > scored-messages-map))))
 
+(defn replace-s [prefix f s]
+  (if (> (.indexOf s "|") -1)
+    (str prefix (subs s (+ (.indexOf s "|") 1)))
+    (let [m (f)]
+      (str prefix ((find-by-id m s) :name)))))
+
+(defn replace-channel [s]
+  (replace-s "#" #(map transform-channel (get-channels)) s))
+
+(defn replace-command [s]
+  ;; we don't have a lookup function for commands,
+  ;; so (even though it's less than ideal)
+  ;; we'll just make the lookup function return
+  ;; <{s}> (which is what Slack says to do).
+  (replace-s "" #({:name (str "<" s ">")}) s))
+
+(defn replace-user [s]
+  (replace-s "@" #(map transform-user (get-users)) s))
+
+;; https://api.slack.com/docs/formatting
+(defn replace-matches [[full-match capture]]
+  (cond
+   (= (.indexOf capture "@U") 0) (replace-user (subs capture 1))
+   (= (.indexOf capture "#C") 0) (replace-channel (subs capture 1))
+   (= (.indexOf capture "!") 0) (replace-command (subs capture 1))
+   :else capture))
+
 (defn parse-message [message]
   (let [users (map transform-user (get-users))
         user (find-by-id users (message "user"))]
     [user (string/replace
            (message "text")
-           #"<@(.*)>"
-           #(when %1
-              (str "@" ((find-by-id users (%1 1)) :name))))]))
+           #"<(.*?)>"
+           replace-matches)]))
 
 (defn make-channel-highlight [message score]
   (let [[user text] (parse-message (message :message))
