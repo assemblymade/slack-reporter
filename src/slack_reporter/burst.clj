@@ -1,10 +1,11 @@
 (ns slack-reporter.burst
   (:require [clojure.string :as string]
             [environ.core :refer [env]]
-            [slack-reporter.core :as core :refer [now]]
+            [slack-reporter.core :as core]
             [slack-reporter.redis :refer [with-car]]
             [slack-reporter.replay :as replay]
             [slack-reporter.reporter :refer [post-highlight]]
+            [slack-reporter.util :as util :refer [now]]
             [taoensso.carmine :as car]))
 
 (def five-minutes (* 5 60))
@@ -66,9 +67,9 @@
                                username
                                " kicked off a conversation in #"
                                channel-name)
-                   :occurred_at (core/format-ts (message :ts))
+                   :occurred_at (util/format-ts (message :ts))
                    :category "Conversation Burst"
-                   :score (core/round-to-2 (min (/ (count messages) 100)))}]
+                   :score (util/round-to-2 (min (/ (count messages) 100)))}]
     (post-highlight highlight)))
 
 (defn burst?

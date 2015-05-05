@@ -1,12 +1,12 @@
 (ns slack-reporter.core
   (:require [clj-http.client :as client]
             [clj-time.core :as t]
-            [clj-time.coerce :as c]
             [environ.core :refer [env]]
             [opennlp.nlp :refer :all]
             [opennlp.tools.filters :refer :all]
             [slack-reporter.replay :as replay]
             [slack-reporter.reporter :refer [post-highlight]]
+            [slack-reporter.util :as util :refer [now]]
             [clojure.data.json :as json]
             [clojure.string :as string]))
 
@@ -34,33 +34,9 @@
                :profile {:real-name "Slackbot"
                          :real_name "Slackbot"}})
 
-(defn now [] (quot (System/currentTimeMillis) 1000))
-
 (defn get-start-time
   ([] (- (now) (* 24 60 60)))
   ([n] (- (now) (* n 24 60 60))))
-
-(defn cache-results [f expiration]
-  (let [cache (atom {})]
-    (fn [& args]
-      (if (< (or (@cache :last-called-at) Double/POSITIVE_INFINITY) expiration)
-        (@cache :last-results)
-        (let [results (apply f args)]
-          (reset! cache {:last-called-at (now)
-                         :last-results results})
-          results)))))
-
-(defn format-ts [ts]
-  (str (c/to-sql-time (* 1000 (int (read-string ts))))))
-
-(defn truncate [s n]
-  (subs s 0 (min (count s) n)))
-
-(defn round-to [p d]
-  (let [factor (Math/pow 10 p)]
-    (/ (Math/round (* d factor)) factor)))
-
-(def round-to-2 (partial round-to 2))
 
 (defn get-and-parse-body [response]
   (json/read-str (:body response)))
@@ -110,7 +86,7 @@
                     "&count=500&oldest="
                     oldest))))
 
-(def get-channel-history (cache-results get-channel-history (+ (now) 60)))
+(def get-channel-history (util/cache-results get-channel-history (+ (now) 60)))
 
 (defn not-archived [c]
   (not (c "is_archived")))
@@ -125,7 +101,7 @@
                               (env :slack-token))))
             "members")) slackbot))
 
-(def get-users (cache-results get-users (+ (now) (* 24 60 60))))
+(def get-users (util/cache-results get-users (+ (now) (* 24 60 60))))
 
 (defn get-channels []
   (filter not-archived
@@ -134,7 +110,7 @@
                              (env :slack-token))))
            "channels")))
 
-(def get-channels (cache-results get-channels (+ (now) (* 60 60))))
+(def get-channels (util/cache-results get-channels (+ (now) (* 60 60))))
 
 (defn get-file-shares [channel]
   (let [history (get-channel-history channel (get-start-time))]
@@ -196,10 +172,10 @@
                      " file")]
     {:content (message :name)
      :label label
-     :occurred_at (format-ts (message :timestamp))
+     :occurred_at (util/format-ts (message :timestamp))
      :source (message :url)
      :category "File Upload"
-     :score (round-to-2 (min (* (/ comments-count 100) 10) 1.0))}))
+     :score (util/round-to-2 (min (* (/ comments-count 100) 10) 1.0))}))
 
 (defn has-comments [message]
   (> (message :comments-count) 0))
@@ -303,9 +279,9 @@
     {:actors [(user :name)]
      :content text
      :label label
-     :occurred_at (format-ts (get-in message [:message "ts"]))
+     :occurred_at (util/format-ts (get-in message [:message "ts"]))
      :category "Important Comment"
-     :score (round-to-2 (min (/ score 100) 1.0))}))
+     :score (util/round-to-2 (min (/ score 100) 1.0))}))
 
 (defn post-file-upload-highlight [channel]
   (post-highlight (first (highlight-file-upload channel))))

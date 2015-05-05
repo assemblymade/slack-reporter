@@ -6,7 +6,7 @@
 
 (defn post-highlight [highlight]
   (when (not (nil? highlight))
-    (client/post (env :titan-api-url)
+    (client/post (str (env :titan-api-url) "/changelogs/assembly/highlights")
                  {:basic-auth [(env :reporter-name)
                                (env :reporter-password)]
                   :body (json/write-str highlight)

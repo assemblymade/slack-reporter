@@ -17,9 +17,8 @@
    (burst/replay-bursts c)))
 
 (defn- refresh []
-  (client/delete "http://titan-api.herokuapp.com/reporter"
+  (client/delete (str (env :titan-api-url) "/reporter")
                  {:basic-auth [(env :reporter-name)
                                (env :reporter-password)]})
   (bursts)
   (important-comments (env :target-channel)))
-

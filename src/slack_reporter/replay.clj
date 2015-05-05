@@ -1,9 +1,8 @@
 (ns slack-reporter.replay
   (:require [slack-reporter.redis :refer [with-car]]
             [slack-reporter.reporter :refer [post-highlight]]
+            [slack-reporter.util :refer [now]]
             [taoensso.carmine :as car]))
-
-(defn now [] (quot (System/currentTimeMillis) 1000))
 
 (defn expiration []
   (+ (now) (* 48 60 60)))
@@ -12,10 +11,10 @@
   (- (now) (* 48 60 60)))
 
 (defn add
-  "Upserts a highlight or highlights {h} to the {k}:replay 
+  "Upserts a highlight or highlights {h} to the {k}:replay
   sorted set with a score of the Unix time (in seconds) 
-  two days from the time of its insertion. This lets us 
-  expire stale members of the set easily based on their 
+  two days from the time of its insertion. This lets us
+  expire stale members of the set easily based on their
   score."
   [k h]
   (let [key (str k ":replay")]
