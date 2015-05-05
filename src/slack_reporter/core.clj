@@ -298,3 +298,18 @@
   (let [msg-score-pairs (take n (process-messages c))
          highlights (map #(apply make-channel-highlight %) msg-score-pairs)]
     (map post-highlight highlights)))
+
+;; TODO: Move these functions (which are just
+;; for refreshing the data) to their own namespace
+
+(defn- important-comments
+  ([c]
+   (post-channel-highlights c 3))
+  ([c n]
+   (post-channel-highlights c n)))
+
+(defn- refresh []
+  (client/delete (str (env :titan-api-url) "/reporter")
+                 {:basic-auth [(env :reporter-name)
+                               (env :reporter-password)]})
+  (important-comments (env :target-channel)))
