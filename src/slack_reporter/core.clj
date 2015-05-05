@@ -244,6 +244,11 @@
     (let [m (f)]
       (str prefix ((find-by-id m s) :name)))))
 
+(defn replace-capture [s]
+  (if (> (.indexOf s "|") -1)
+    (str (subs s (+ (.indexOf s "|") 1)))
+    s))
+
 (defn replace-channel [s]
   (replace-s "#" #(map transform-channel (get-channels)) s))
 
@@ -263,7 +268,7 @@
    (= (.indexOf capture "@U") 0) (replace-user (subs capture 1))
    (= (.indexOf capture "#C") 0) (replace-channel (subs capture 1))
    (= (.indexOf capture "!") 0) (replace-command (subs capture 1))
-   :else capture))
+   :else (replace-capture capture)))
 
 (defn parse-message [message]
   (let [users (map transform-user (get-users))
