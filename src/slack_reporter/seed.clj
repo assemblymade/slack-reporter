@@ -20,5 +20,5 @@
   (client/delete (str (env :titan-api-url) "/reporter")
                  {:basic-auth [(env :reporter-name)
                                (env :reporter-password)]})
-  (bursts)
+  (burst/simulate-bursts (env :target-channel))
   (important-comments (env :target-channel)))

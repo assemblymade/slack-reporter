@@ -78,8 +78,8 @@
          stop (now)
          n (with-car (car/zcount key start stop))]
      (when (> n size)
-       (let [last-burst (Integer. (or (last-burst-at key) 0))
-             wait-time (Integer. (or (wait-for key) 0))]
+       (let [last-burst (long (read-string (or (last-burst-at key) "0")))
+             wait-time (long (read-string (or (wait-for key) "0")))]
          (when (< (- (now) last-burst) wait-time)
            (wait-for key (* 2 wait-time))
            (empty-bucket key start stop))
@@ -109,3 +109,25 @@
   (let [msgs (flatten (replay/fetch k))]
     (when (> (count msgs) 0)
       (create-highlight msgs))))
+
+(defn- within-ten-minutes [ts]
+  (fn [i]
+    (let [i-ts (int (read-string (i :ts)))]
+      (< (Math/abs (- ts i-ts)) ten-minutes))))
+
+(defn simulate-bursts [c]
+  (let [messages (vec (map #(assoc (clojure.walk/keywordize-keys %)
+                              :channel_name "important"
+                              :user_name ((core/find-by-id (get-users) (% "user")) :name))
+                           (core/get-messages c)))]
+    (loop [ms messages
+           bucket []]
+      (if (empty? ms)
+        "Finished bursting"
+        (let [m (first ms)
+              ts (int (read-string (m :ts)))]
+          (if (>= (count bucket) (Integer. (env :bucket-size)))
+            (do (create-highlight bucket)
+                (recur ms []))
+            (recur (rest ms)
+                   (conj (vec (filter (within-ten-minutes ts) bucket)) m))))))))
