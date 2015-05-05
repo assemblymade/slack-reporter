@@ -8,7 +8,7 @@
             [ring.middleware.defaults :refer [api-defaults wrap-defaults]]
             [slack-reporter.core :refer [post-file-upload-highlight
                                          post-channel-highlight]]
-            [slack-reporter.burst-detector :as burst]))
+            [slack-reporter.burst :as burst]))
 
 (defonce twenty-four-hours (* 24 60 60 1000))
 

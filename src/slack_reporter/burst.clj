@@ -1,11 +1,11 @@
-(ns slack-reporter.burst-detector
+(ns slack-reporter.burst
   (:require [clojure.string :as string]
             [environ.core :refer [env]]
             [slack-reporter.core :as core :refer [now]]
+            [slack-reporter.redis :refer [with-car]]
+            [slack-reporter.replay :as replay]
+            [slack-reporter.reporter :refer [post-highlight]]
             [taoensso.carmine :as car]))
-
-(def redis-conn {:pool {} :spec {:uri (env :rediscloud-url)}})
-(defmacro with-car [& body] `(car/wcar redis-conn ~@body))
 
 (def five-minutes (* 5 60))
 (def ten-minutes (* 2 five-minutes))
@@ -30,16 +30,6 @@
 
 (defn get-users []
   (map core/transform-user (core/get-users)))
-
-(defn transform-message [message]
-  (let [users (get-users)]
-    (str
-     (message :user_name)
-     ": "
-     (string/replace
-      (message :text)
-      #"<@(.*)>"
-      #(str "@" ((core/find-by-id users (%1 1)) :name))))))
 
 (defn participants [msgs]
   (let [m (map #(% :user_name) msgs)
@@ -67,18 +57,19 @@
 (defn create-highlight [messages]
   (let [message (first messages)
         channel-name (message :channel_name)
-        text (message :text)
+        text (string/replace (message :text) #"<(.*?)>" core/replace-matches)
         username (message :user_name)
-        actors (participants messages)]
-    (core/post-highlight {:actors actors
-                          :content text
-                          :label (str "@"
-                                        username
-                                        " kicked off a conversation in #"
-                                        channel-name)
-                          :occurred_at (core/format-ts (message :ts))
-                          :category "Conversation Burst"
-                          :score (core/round-to-2 (min (/ (count messages) 100)))})))
+        actors (participants messages)
+        highlight {:actors actors
+                   :content text
+                   :label (str "@"
+                               username
+                               " kicked off a conversation in #"
+                               channel-name)
+                   :occurred_at (core/format-ts (message :ts))
+                   :category "Conversation Burst"
+                   :score (core/round-to-2 (min (/ (count messages) 100)))}]
+    (post-highlight highlight)))
 
 (defn burst?
   ([key size]
@@ -94,8 +85,9 @@
          (when (> (- (now) last-burst) wait-time)
            (wait-for key ten-minutes)
            (last-burst-at key stop)
-           (create-highlight (with-car
-                               (car/zrangebyscore key start stop)))
+           (let [msgs (with-car (car/zrangebyscore key start stop))]
+             (replay/add "burst" msgs)
+             (create-highlight msgs))
            (empty-bucket key start stop))))))
   ([key size start stop]
    (let [n (with-car (car/zcount key start stop))]
@@ -104,10 +96,14 @@
 
 
 (defn- fake-burst [c]
-  (let [messages (map #(assoc
-                         (clojure.walk/keywordize-keys %)
+  (let [users (get-users)
+        messages (map #(assoc (clojure.walk/keywordize-keys %)
                          :channel_name "important"
-                         :user_name (let [users (get-users)]
-                                      ((core/find-by-id users (% "user")) :name)))
+                         :user_name ((core/find-by-id users (% "user")) :name))
                       (core/get-messages c))]
+    (replay/add "fake-burst" messages)
     (create-highlight messages)))
+
+(defn- replay-burst [k]
+  (let [msgs (flatten (replay/fetch k))]
+    (create-highlight msgs)))

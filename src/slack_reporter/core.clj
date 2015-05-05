@@ -5,6 +5,8 @@
             [environ.core :refer [env]]
             [opennlp.nlp :refer :all]
             [opennlp.tools.filters :refer :all]
+            [slack-reporter.replay :as replay]
+            [slack-reporter.reporter :refer [post-highlight]]
             [clojure.data.json :as json]
             [clojure.string :as string]))
 
@@ -258,7 +260,7 @@
                                                       (%3 :ngrams)))
                                        {}
                                        messages-map)]
-    (first (sort-by val > scored-messages-map))))
+    (sort-by val > scored-messages-map)))
 
 (defn replace-s [prefix f s]
   (if (> (.indexOf s "|") -1)
@@ -305,17 +307,18 @@
      :category "Important Comment"
      :score (round-to-2 (min (/ score 100) 1.0))}))
 
-(defn post-highlight [highlight]
-  (when (not (nil? highlight))
-    (client/post (env :titan-api-url)
-                 {:basic-auth [(env :reporter-name)
-                               (env :reporter-password)]
-                  :body (json/write-str highlight)
-                  :content-type :json})))
-
 (defn post-file-upload-highlight [channel]
   (post-highlight (first (highlight-file-upload channel))))
 
 (defn post-channel-highlight [channel]
-  (let [[message score] (process-messages channel)]
-    (post-highlight (make-channel-highlight message score))))
+  (let [[message score] (first (process-messages channel))
+        highlight (make-channel-highlight message score)]
+    (replay/add "assembly" highlight)
+    (post-highlight highlight)))
+
+(defn post-channel-highlights
+  "Posts the top {n} highlights from channel {c}."
+  [c n]
+  (let [msg-score-pairs (take n (process-messages c))
+         highlights (map #(apply make-channel-highlight %) msg-score-pairs)]
+    (map post-highlight highlights)))
