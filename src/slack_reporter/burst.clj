@@ -56,21 +56,25 @@
                               " others"))))))
 
 (defn create-highlight [messages]
-  (let [message (first messages)
-        channel-name (message :channel_name)
-        text (string/replace (message :text) #"<(.*?)>" core/replace-matches)
-        username (message :user_name)
-        actors (participants messages)
-        highlight {:actors actors
-                   :content text
-                   :label (str "@"
-                               username
-                               " kicked off a conversation in #"
-                               channel-name)
-                   :occurred_at (util/format-ts (message :ts))
-                   :category "Conversation Burst"
-                   :score (util/round-to-2 (min (/ (count messages) 100)))}]
-    (post-highlight highlight)))
+  (if-let [message (first messages)]
+    (if-let [raw-text (message :text)]
+      (let [channel-name (message :channel_name)
+        text (string/replace
+              raw-text
+              #"<(.*?)>"
+              core/replace-matches)
+            username (message :user_name)
+            actors (participants messages)
+            highlight {:actors actors
+                       :content text
+                       :label (str "@"
+                                   username
+                                   " kicked off a conversation in #"
+                                   channel-name)
+                       :occurred_at (util/format-ts (message :ts))
+                       :category "Conversation Burst"
+                       :score (util/round-to-2 (min (/ (count messages) 100)))}]
+        (post-highlight highlight)))))
 
 (defn burst?
   ([key size]
@@ -126,8 +130,9 @@
         "Finished bursting"
         (let [m (first ms)
               ts (int (read-string (m :ts)))]
-          (if (>= (count bucket) (Integer. (env :bucket-size)))
+          (if (> (count bucket) 12)
             (do (create-highlight bucket)
                 (recur ms []))
-            (recur (rest ms)
-                   (conj (vec (filter (within-ten-minutes ts) bucket)) m))))))))
+            (do (println (count bucket))
+             (recur (rest ms)
+                    (conj (vec (filter (within-ten-minutes ts) bucket)) m)))))))))
