@@ -104,6 +104,7 @@
     (replay/add "fake-burst" messages)
     (create-highlight messages)))
 
-(defn- replay-burst [k]
+(defn replay-bursts [k]
   (let [msgs (flatten (replay/fetch k))]
-    (create-highlight msgs)))
+    (when (> (count msgs) 0)
+      (create-highlight msgs))))

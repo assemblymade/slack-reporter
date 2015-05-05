@@ -1,5 +1,8 @@
 (ns slack-reporter.seed
-  (:require [slack-reporter.core :as core]))
+  (:require [clj-http.client :as client]
+            [environ.core :refer [env]]
+            [slack-reporter.core :as core]
+            [slack-reporter.burst :as burst]))
 
 (defn important-comments
   ([c]
@@ -8,9 +11,15 @@
    (core/post-channel-highlights c n)))
 
 (defn bursts
-  "Detects bursts in channel {c} according to the 
-  leaky bucket algorithm in slack-reporter/burst 
-  and posts highlights about them if any are 
-  detected."
-  [c])
+  ([]
+   (burst/replay-bursts "burst"))
+  ([c]
+   (burst/replay-bursts c)))
+
+(defn- refresh []
+  (client/delete "http://titan-api.herokuapp.com/reporter"
+                 {:basic-auth [(env :reporter-name)
+                               (env :reporter-password)]})
+  (bursts)
+  (important-comments (env :target-channel)))
 

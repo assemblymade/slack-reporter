@@ -35,3 +35,4 @@
     (with-redefs [slack-reporter.core/get-users mock-get-users
                   slack-reporter.core/get-channels mock-get-channels]
       (is (= (parse-message message) [user "Hey, @lmarvin in #mychannel"])))))
+
