@@ -6,8 +6,8 @@
             [overtone.at-at :as at-at]
             [ring.adapter.jetty :refer [run-jetty]]
             [ring.middleware.defaults :refer [api-defaults wrap-defaults]]
-            [slack-reporter.core :refer [post-file-upload-highlight
-                                         post-channel-highlight]]
+            [slack-reporter.core :as core :refer [post-file-upload-highlight
+                                                  post-channel-highlight]]
             [slack-reporter.burst :as burst]))
 
 (defonce twenty-four-hours (* 24 60 60 1000))
