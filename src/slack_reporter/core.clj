@@ -257,7 +257,9 @@
   ;; so (even though it's less than ideal)
   ;; we'll just make the lookup function return
   ;; <{s}> (which is what Slack says to do).
-  (replace-s "" #({:name (str "<" s ">")}) s))
+  (if (> (.indexOf s "|") -1)
+    (replace-s "" #({:name (str "<" s ">")}) s)
+    s))
 
 (defn replace-user [s]
   (replace-s "@" #(map transform-user (get-users)) s))

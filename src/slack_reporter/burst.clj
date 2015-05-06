@@ -59,10 +59,10 @@
   (if-let [message (first messages)]
     (if-let [raw-text (message :text)]
       (let [channel-name (message :channel_name)
-        text (string/replace
-              raw-text
-              #"<(.*?)>"
-              core/replace-matches)
+            text (string/replace
+                  raw-text
+                  #"<(.*?)>"
+                  core/replace-matches)
             username (message :user_name)
             actors (participants messages)
             highlight {:actors actors
@@ -82,10 +82,10 @@
          stop (now)
          n (with-car (car/zcount key start stop))]
      (when (> n size)
-       (let [last-burst (long (read-string (or (last-burst-at key) "0")))
-             wait-time (long (read-string (or (wait-for key) "0")))]
+       (let [last-burst (Integer. (or (last-burst-at key) 0))
+             wait-time (Integer. (or (wait-for key) 0))]
          (when (< (- (now) last-burst) wait-time)
-           (wait-for key (* 2 wait-time))
+           (wait-for key (max (* 2 wait-time) 3600))
            (empty-bucket key start stop))
          (when (> (- (now) last-burst) wait-time)
            (wait-for key ten-minutes)
@@ -98,7 +98,6 @@
    (let [n (with-car (car/zcount key start stop))]
      (when (> n size)
        (with-car (car/zrangebyscore key start stop))))))
-
 
 (defn- fake-burst [c]
   (let [users (get-users)
@@ -131,7 +130,7 @@
         (let [m (first ms)
               ts (int (read-string (m :ts)))]
           (if (> (count bucket) 12)
-            (do (create-highlight bucket)
+            (do (create-highlight (sort-by #(int (read-string (% :ts))) bucket))
                 (recur ms []))
             (recur (rest ms)
                    (conj (vec (filter (within-ten-minutes ts) bucket)) m))))))))
