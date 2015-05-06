@@ -133,6 +133,5 @@
           (if (> (count bucket) 12)
             (do (create-highlight bucket)
                 (recur ms []))
-            (do (println (count bucket))
-             (recur (rest ms)
-                    (conj (vec (filter (within-ten-minutes ts) bucket)) m)))))))))
+            (recur (rest ms)
+                   (conj (vec (filter (within-ten-minutes ts) bucket)) m))))))))

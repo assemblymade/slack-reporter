@@ -232,8 +232,8 @@
                         (apply concat sentence-bigrams))
         bigram-frequencies (frequencies bigrams)
         messages-map (map-sentences-to-bigrams messages bigram-frequencies)
-        scored-messages-map (reduce-kv #(assoc %1 %3 (calculate-score
-                                                      (%3 :ngrams)))
+        scored-messages-map (reduce-kv #(assoc %1 %3
+                                               (calculate-score (%3 :ngrams)))
                                        {}
                                        messages-map)]
     (sort-by val > scored-messages-map)))
