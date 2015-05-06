@@ -315,7 +315,7 @@
   ([c n]
    (post-channel-highlights c n)))
 
-(defn- refresh []
+(defn refresh []
   (client/delete (str (env :titan-api-url) "/reporter")
                  {:basic-auth [(env :reporter-name)
                                (env :reporter-password)]})
