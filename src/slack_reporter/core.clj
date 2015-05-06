@@ -210,8 +210,9 @@
 (defn map-sentences-to-bigrams [messages bigram-frequencies]
   (reduce #(assoc %1
              (%2 "text")
-             {:ngrams (filter (bigram-in-message? (%2 "text"))
-                        bigram-frequencies)
+             {:ngrams (filter
+                       (bigram-in-message? (%2 "text"))
+                       bigram-frequencies)
               :message %2})
           {}
           messages))
@@ -280,9 +281,22 @@
            #"<(.*?)>"
            replace-matches)]))
 
-(defn make-channel-highlight [message score]
+(def labels [" said something important in #"
+             " raised a good point in #"
+             " hit the nail on the head in #"
+             " brought down the house in #"
+             " rocked out in #"
+             " was on point in #"])
+
+(defn make-channel-highlight [message score channel]
   (let [[user text] (parse-message (message :message))
-         label (str "@" (user :name) " said something important")]
+         label (str "@"
+                    (user :name)
+                    (rand-nth labels)
+                    (:name
+                     (find-by-id
+                      (map transform-channel (get-channels))
+                      channel)))]
     {:actors [(user :name)]
      :content text
      :label label
@@ -295,8 +309,7 @@
 
 (defn post-channel-highlight [channel]
   (let [[message score] (first (process-messages channel))
-        highlight (make-channel-highlight message score)]
-    (replay/add "assembly" highlight)
+        highlight (make-channel-highlight message score channel)]
     (post-highlight highlight)))
 
 (defn post-channel-highlights
@@ -320,3 +333,4 @@
                  {:basic-auth [(env :reporter-name)
                                (env :reporter-password)]})
   (important-comments (env :target-channel)))
+(post-channel-highlight "C0250R8DP")
