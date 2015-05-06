@@ -71,7 +71,7 @@
                                    username
                                    " kicked off a conversation in #"
                                    channel-name)
-                       :occurred_at (util/format-ts (message :ts))
+                       :occurred_at (util/format-ts (or (message :ts) (message :timestamp)))
                        :category "Conversation Burst"
                        :score (util/round-to-2 (min (/ (count messages) 100)))}]
         (post-highlight highlight)))))
@@ -84,53 +84,45 @@
      (when (> n size)
        (let [last-burst (Integer. (or (last-burst-at key) 0))
              wait-time (Integer. (or (wait-for key) 0))]
-         (when (< (- (now) last-burst) wait-time)
-           (wait-for key (max (* 2 wait-time) 3600))
-           (empty-bucket key start stop))
-         (when (> (- (now) last-burst) wait-time)
-           (wait-for key ten-minutes)
-           (last-burst-at key stop)
-           (let [msgs (with-car (car/zrangebyscore key start stop))]
-             (replay/add "burst" msgs)
-             (create-highlight msgs))
-           (empty-bucket key start stop))))))
+         (if (< (- (now) last-burst) wait-time)
+           (do (wait-for key (min (* 2 wait-time) 3600))
+               (empty-bucket key start stop))
+           (do (wait-for key ten-minutes)
+               (last-burst-at key stop)
+               (let [msgs (with-car (car/zrangebyscore key start stop))]
+                 (create-highlight msgs))
+               (empty-bucket key start stop)))))))
   ([key size start stop]
    (let [n (with-car (car/zcount key start stop))]
      (when (> n size)
        (with-car (car/zrangebyscore key start stop))))))
 
-(defn- fake-burst [c]
-  (let [users (get-users)
-        messages (map #(assoc (clojure.walk/keywordize-keys %)
-                         :channel_name "important"
-                         :user_name ((core/find-by-id users (% "user")) :name))
-                      (core/get-messages c))]
-    (replay/add "fake-burst" messages)
-    (create-highlight messages)))
-
-(defn replay-bursts [k]
-  (let [msgs (flatten (replay/fetch k))]
-    (when (> (count msgs) 0)
-      (create-highlight msgs))))
-
-(defn- within-ten-minutes [ts]
+(defn- within-five-minutes [ts]
   (fn [i]
     (let [i-ts (int (read-string (i :ts)))]
-      (< (Math/abs (- ts i-ts)) ten-minutes))))
+      (< (Math/abs (- ts i-ts)) five-minutes))))
 
 (defn simulate-bursts [c]
-  (let [messages (vec (map #(assoc (clojure.walk/keywordize-keys %)
-                              :channel_name "important"
-                              :user_name ((core/find-by-id (get-users) (% "user")) :name))
-                           (core/get-messages c)))]
+  (let [messages (reverse
+                  (map
+                   #(assoc (clojure.walk/keywordize-keys %)
+                      :channel_name "important"
+                      :user_name ((core/find-by-id (get-users) (% "user")) :name))
+                   (core/get-messages c)))]
     (loop [ms messages
-           bucket []]
+           bucket #{}
+           last-burst 0
+           wait-time 0]
       (if (empty? ms)
         "Finished bursting"
         (let [m (first ms)
               ts (int (read-string (m :ts)))]
-          (if (> (count bucket) 12)
-            (do (create-highlight (sort-by #(int (read-string (% :ts))) bucket))
-                (recur ms []))
+          (if (> (count bucket) 15)
+            (if (< (- ts last-burst) wait-time)
+              (recur (rest ms) #{} ts (min (* 2 wait-time) 3600))
+              (do (create-highlight (sort-by #(int (read-string (% :ts))) bucket))
+                  (recur ms #{} ts ten-minutes)))
             (recur (rest ms)
-                   (conj (vec (filter (within-ten-minutes ts) bucket)) m))))))))
+                   (conj (filter (within-five-minutes ts) bucket) m)
+                   last-burst
+                   wait-time)))))))
