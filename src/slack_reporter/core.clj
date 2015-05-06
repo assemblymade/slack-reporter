@@ -333,4 +333,3 @@
                  {:basic-auth [(env :reporter-name)
                                (env :reporter-password)]})
   (important-comments (env :target-channel)))
-(post-channel-highlight "C0250R8DP")
