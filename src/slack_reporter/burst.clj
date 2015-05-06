@@ -73,7 +73,9 @@
                                    channel-name)
                        :occurred_at (util/format-ts (or (message :ts) (message :timestamp)))
                        :category "Conversation Burst"
-                       :score (util/round-to-2 (min (/ (count messages) 100)))}]
+                       :score (util/round-to-2 (min (+ (/ (count actors) 10)
+                                                       (/ (count messages) 100))
+                                                    1.0))}]
         (post-highlight highlight)))))
 
 (defn burst?

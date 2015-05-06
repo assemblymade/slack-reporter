@@ -29,8 +29,9 @@
                           :keywordize true)))
 
 (defn -main []
-  (let [p (at-at/mk-pool)]
-    (at-at/every twenty-four-hours
-                 #(post-channel-highlight (env :target-channel))
-                 p)
+  (let [p (at-at/mk-pool)
+        c (env :target-channel)]
+    (core/refresh)
+    (burst/simulate-bursts c)
+    (at-at/every twenty-four-hours #(post-channel-highlight c) p)
     (run-jetty app {:port (Integer. (or (env :port) "8080"))})))
