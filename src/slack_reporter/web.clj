@@ -6,9 +6,10 @@
             [overtone.at-at :as at-at]
             [ring.adapter.jetty :refer [run-jetty]]
             [ring.middleware.defaults :refer [api-defaults wrap-defaults]]
+            [slack-reporter.burst :as burst]
             [slack-reporter.core :as core :refer [post-file-upload-highlight
                                                   post-channel-highlight]]
-            [slack-reporter.burst :as burst]))
+            [slack-reporter.db.migrations :refer [migrate]]))
 
 (defonce twenty-four-hours (* 24 60 60 1000))
 
@@ -31,6 +32,7 @@
 (defn -main []
   (let [p (at-at/mk-pool)
         c (env :target-channel)]
+    (migrate)
     (core/refresh)
     (burst/simulate-bursts c)
     (at-at/every twenty-four-hours #(post-channel-highlight c) p)

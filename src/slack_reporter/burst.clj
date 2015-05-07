@@ -1,18 +1,24 @@
 (ns slack-reporter.burst
-  (:require [clojure.string :as string]
+  (:require [clojure.data.json :as json]
+            [clojure.string :as string]
             [environ.core :refer [env]]
             [slack-reporter.core :as core]
+            [slack-reporter.db.config :refer [messages]]
             [slack-reporter.redis :refer [with-car]]
             [slack-reporter.replay :as replay]
             [slack-reporter.reporter :refer [post-highlight]]
             [slack-reporter.util :as util :refer [now]]
-            [taoensso.carmine :as car]))
+            [taoensso.carmine :as car])
+  (:use [korma.core]))
 
 (def five-minutes (* 5 60))
 (def ten-minutes (* 2 five-minutes))
 
 (defn add [key message]
-  (with-car (car/zadd key (now) message)))
+  (with-car (car/zadd key (now) message))
+  (insert messages
+          (values {:channel-id key
+                   :message message})))
 
 (defn last-burst-at
   ([k]
