@@ -345,7 +345,7 @@
 (defn fetch-keywords [t]
   (read-body
    (client/post
-    "http://localhost:3000/rake"
+    (str (env :keywords-api-url) "/rake")
     {:content-type :json
      :accept :json
      :body (json/write-str {:text (apply str t)})})))
