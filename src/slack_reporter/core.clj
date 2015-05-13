@@ -350,30 +350,29 @@
      :accept :json
      :body (json/write-str {:text (apply str t)})})))
 
-(pos-filter nouns-and-conjunctions #"^(NN|IN)")
-
 (defn not-empty? [s]
   (not= s ""))
 
-(defn build-keyword-highlight
-  (str "Yesterday, the team talked about "
-       (string/join
-        ", "
-        (take
-         7
-         (map
-          #(string/join
-            " "
-            (map first
-                 (nouns-and-conjunctions
-                  (tag-pos
-                   (tokenize
-                    (string/replace
-                     (string/join " " (take 2 (first %)))
-                     #"\n"
-                     " "))))))
-          (fetch-keywords (concat-messages)))))
-       ", and a few other things in #important."))
+(defn build-keyword-highlight []
+  (let [n-c (pos-filter nouns-and-conjunctions #"^(NN|IN)")]
+    (str "Yesterday, the team talked about "
+         (string/join
+          ", "
+          (take
+           7
+           (map
+            #(string/join
+              " "
+              (map first
+                   (n-c
+                    (tag-pos
+                     (tokenize
+                      (string/replace
+                       (string/join " " (take 2 (first %)))
+                       #"\n"
+                       " "))))))
+            (fetch-keywords (concat-messages)))))
+         ", and a few other things in #important.")))
 
 ;; TODO: Move these functions (which are just
 ;; for refreshing the data) to their own namespace
