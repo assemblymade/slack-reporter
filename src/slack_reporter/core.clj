@@ -1,6 +1,7 @@
 (ns slack-reporter.core
   (:require [clj-http.client :as client]
             [clj-time.core :as t]
+            [clj-time.coerce :as c]
             [environ.core :refer [env]]
             [opennlp.nlp :refer :all]
             [opennlp.tools.filters :refer :all]
@@ -38,7 +39,7 @@
   ([] (- (now) (* 24 60 60)))
   ([n] (- (now) (* n 24 60 60))))
 
-(defn get-and-parse-body [response]
+(defn read-body [response]
   (json/read-str (:body response)))
 
 (defn is-file-share [message]
@@ -77,14 +78,25 @@
 (defn get-user-avatar-url [user]
   ((user "profile") "image_192"))
 
-(defn get-channel-history [channel oldest]
-  (get-and-parse-body
-   (client/get (str "https://slack.com/api/channels.history?token="
-                    (env :slack-token)
-                    "&channel="
-                    channel
-                    "&count=500&oldest="
-                    oldest))))
+(defn get-channel-history
+  ([channel oldest]
+   (read-body
+    (client/get (str "https://slack.com/api/channels.history?token="
+                     (env :slack-token)
+                     "&channel="
+                     channel
+                     "&count=1000&oldest="
+                     oldest))))
+  ([channel oldest newest]
+   (read-body
+    (client/get (str "https://slack.com/api/channels.history?token="
+                     (env :slack-token)
+                     "&channel="
+                     channel
+                     "&count=1000&oldest="
+                     oldest
+                     "&newest="
+                     newest)))))
 
 (def get-channel-history (util/cache-results get-channel-history (+ (now) 60)))
 
@@ -96,7 +108,7 @@
 
 (defn get-users []
   (conj (filter not-deleted
-           ((get-and-parse-body
+           ((read-body
              (client/get (str "https://slack.com/api/users.list?token="
                               (env :slack-token))))
             "members")) slackbot))
@@ -105,7 +117,7 @@
 
 (defn get-channels []
   (filter not-archived
-          ((get-and-parse-body
+          ((read-body
             (client/get (str "https://slack.com/api/channels.list?token="
                              (env :slack-token))))
            "channels")))
@@ -318,6 +330,50 @@
   (let [msg-score-pairs (take n (process-messages c))
          highlights (map #(apply make-channel-highlight %) msg-score-pairs)]
     (map post-highlight highlights)))
+
+(defn concat-messages []
+  (concat
+   (map
+    #(str
+      (string/replace
+       (% "text")
+       #"<(.*?)>"
+       replace-matches)
+      "\n")
+    (get-messages (env :target-channel)))))
+
+(defn fetch-keywords [t]
+  (read-body
+   (client/post
+    "http://localhost:3000/rake"
+    {:content-type :json
+     :accept :json
+     :body (json/write-str {:text (apply str t)})})))
+
+(pos-filter nouns-and-conjunctions #"^(NN|IN)")
+
+(defn not-empty? [s]
+  (not= s ""))
+
+(defn build-keyword-highlight
+  (str "Yesterday, the team talked about "
+       (string/join
+        ", "
+        (take
+         7
+         (map
+          #(string/join
+            " "
+            (map first
+                 (nouns-and-conjunctions
+                  (tag-pos
+                   (tokenize
+                    (string/replace
+                     (string/join " " (take 2 (first %)))
+                     #"\n"
+                     " "))))))
+          (fetch-keywords (concat-messages)))))
+       ", and a few other things in #important."))
 
 ;; TODO: Move these functions (which are just
 ;; for refreshing the data) to their own namespace
