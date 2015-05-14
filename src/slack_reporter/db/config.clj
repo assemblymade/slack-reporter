@@ -34,6 +34,8 @@
 
 (defdb db pg)
 
+(defentity webhooks)
+
 (defentity messages
   (prepare
    (fn [v]
