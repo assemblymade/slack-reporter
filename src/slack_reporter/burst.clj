@@ -35,6 +35,9 @@
 (defn empty-bucket [k start stop]
   (with-car (car/zremrangebyscore k start stop)))
 
+(defn get-channels []
+  (clojure.walk/keywordize-keys (core/get-channels)))
+
 (defn get-users []
   (map core/transform-user (core/get-users)))
 
@@ -111,10 +114,11 @@
       (< (Math/abs (- ts i-ts)) five-minutes))))
 
 (defn simulate-bursts [c]
-  (let [messages (reverse
+  (let [channel-name ((core/find-by-id (get-channels) c) :name)
+        messages (reverse
                   (map
                    #(assoc (clojure.walk/keywordize-keys %)
-                      :channel_name "important"
+                      :channel_name channel-name
                       :user_name ((core/find-by-id (get-users) (% "user")) :name))
                    (core/get-messages c)))]
     (loop [ms messages
