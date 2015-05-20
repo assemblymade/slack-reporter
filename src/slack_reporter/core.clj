@@ -324,11 +324,9 @@
         highlight (make-channel-highlight message score channel)]
     (post-highlight highlight)))
 
-(defn post-channel-highlights
-  "Posts the top {n} highlights from channel {c}."
-  [c n]
+(defn post-channel-highlights [c n]
   (let [msg-score-pairs (take n (process-messages c))
-         highlights (map #(apply make-channel-highlight %) msg-score-pairs)]
+        highlights (map #(make-channel-highlight (% 0) (% 1) c) msg-score-pairs)]
     (map post-highlight highlights)))
 
 (defn concat-messages []
